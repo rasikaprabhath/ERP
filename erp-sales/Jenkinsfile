@@ -1,9 +1,16 @@
 pipeline {
   agent any
 
+  tools {
+    maven 'maven-3.8.1'
+  }
+
   environment {
     IMAGE_NAME = "erp-sales"
-    IMAGE_TAG = "${env.BUILD_ID}"
+    AWS_REGION = "ap-southeast-2"
+    ACCOUNT_ID = "457320695561"
+    ECR_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}"
+    IMAGE_TAG = "${BUILD_ID}"
   }
 
   stages {
@@ -15,22 +22,27 @@ pipeline {
 
     stage('Build WAR') {
       steps {
-        sh 'mvn clean package'
+        dir('erp-sales') {
+          sh 'mvn clean package'
+        }
       }
     }
 
     stage('Build Docker Image') {
       steps {
-        sh 'docker build -t $IMAGE_NAME:$IMAGE_TAG .'
+        dir('erp-sales') {
+          sh 'docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .'
+          sh 'docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_REPO}:${IMAGE_TAG}'
+        }
       }
     }
 
-    stage('Run Container (optional)') {
-      when {
-        expression { return false }  // set to true if you want to auto-run locally
-      }
+    stage('Push to ECR') {
       steps {
-        sh 'docker run -d -p 8080:8080 $IMAGE_NAME:$IMAGE_TAG'
+        dir('erp-sales') {
+          sh 'aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO'
+          sh 'docker push ${ECR_REPO}:${IMAGE_TAG}'
+        }
       }
     }
   }
