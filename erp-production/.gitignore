@@ -1,0 +1,22 @@
+# Maven target directory
+target/
+
+# Logs
+*.log
+
+# IDE files
+*.iml
+.idea/
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Build tools
+*.class
+*.jar
+*.war
+
+# Env files (if used)
+.env
