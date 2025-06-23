@@ -1,16 +1,12 @@
 pipeline {
   agent any
 
-  tools {
-    maven 'Maven'
-  }
-
   environment {
-    IMAGE_NAME = "erp-sales"
     AWS_REGION = "ap-southeast-2"
     ACCOUNT_ID = "457320695561"
+    IMAGE_NAME = "erp-sales"
     ECR_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_NAME}"
-    IMAGE_TAG = "${BUILD_ID}"
+    IMAGE_TAG = "${BUILD_NUMBER}"
   }
 
   stages {
@@ -20,28 +16,16 @@ pipeline {
       }
     }
 
-    stage('Build WAR') {
+    stage('Build and Push') {
       steps {
-        dir('erp-sales') {
-          sh 'mvn clean package'
-        }
-      }
-    }
-
-    stage('Build Docker Image') {
-      steps {
-        dir('erp-sales') {
-          sh 'docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .'
-          sh 'docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_REPO}:${IMAGE_TAG}'
-        }
-      }
-    }
-
-    stage('Push to ECR') {
-      steps {
-        dir('erp-sales') {
-          sh 'aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO'
-          sh 'docker push ${ECR_REPO}:${IMAGE_TAG}'
+        withCredentials([usernamePassword(credentialsId: 'myjenkinsAWSuser', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          dir('erp-sales') {
+            sh "mvn clean package"
+            sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}"
+            sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+            sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_REPO}:${IMAGE_TAG}"
+            sh "docker push ${ECR_REPO}:${IMAGE_TAG}"
+          }
         }
       }
     }
